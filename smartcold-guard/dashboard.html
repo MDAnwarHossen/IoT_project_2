@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>SmartCold Guard — Live Dashboard</title>
+  <style>
+    :root { --ink:#122d40; --muted:#637889; --line:#dce6ec; --bg:#f3f7fa; --card:#fff;
+      --teal:#147f7f; --blue:#3676b8; --amber:#a96b14; --warn:#a34235; --radius:18px; }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);font:15px/1.5 system-ui,-apple-system,Segoe UI,Arial,sans-serif;color:var(--ink)}
+    .layout{max-width:1160px;margin:0 auto;padding:30px 22px 50px}
+    header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;margin-bottom:26px}
+    .brand{display:flex;align-items:center;gap:14px}.brand-mark{display:grid;place-items:center;width:53px;height:53px;border-radius:15px;background:#d7f0ec;color:var(--teal);font-size:27px}
+    .eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);font-weight:800}
+    h1{font-size:clamp(24px,3vw,32px);line-height:1.1;letter-spacing:-.03em;margin:5px 0 4px}p{margin:0}.subtitle{color:var(--muted);font-size:14px}
+    .status{display:flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid var(--line);background:white;border-radius:999px;font-size:13px;font-weight:700}
+    .dot{width:9px;height:9px;border-radius:50%;background:#a7b2ba}.dot.live{background:#1b9d80;box-shadow:0 0 0 4px #ddf5ec}.dot.bad{background:var(--warn)}
+    .intro{border:1px solid #d2e4e4;background:linear-gradient(130deg,#e2f3f0 0%,#eef4fb 100%);border-radius:var(--radius);padding:21px 23px;margin-bottom:20px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:15px;align-items:center}
+    .intro strong{font-size:18px}.intro .sub{color:#5a7280;font-size:13px;margin-top:4px}.smallinfo{color:var(--muted);font-size:13px;text-align:right}
+    .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:20px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:19px;box-shadow:0 3px 14px rgba(25,66,90,.03)}
+    .metric-label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.055em}
+    .metric-value{font-size:clamp(25px,3vw,35px);font-weight:760;letter-spacing:-.05em;margin-top:13px;line-height:1.18;font-variant-numeric:tabular-nums}
+    .metric-value small{font-size:16px;color:var(--muted);font-weight:500;letter-spacing:0}.metric-sub{font-size:12px;color:var(--muted);margin-top:10px}
+    .section-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:18px;margin-bottom:20px}
+    .card-header{display:flex;align-items:start;justify-content:space-between;gap:10px;margin-bottom:12px}h2{margin:0;font-size:17px;letter-spacing:-.02em} .tag{font-size:11px;padding:4px 9px;border-radius:20px;background:#edf4f5;color:#406273;font-weight:700;white-space:nowrap}
+    .chart-container{width:100%;height:210px}.chart-container svg{height:100%;width:100%;display:block;overflow:visible}
+    .chart-legend{display:flex;flex-wrap:wrap;gap:15px;margin-top:6px;color:var(--muted);font-size:12px}.legend-color{display:inline-block;width:13px;height:4px;border-radius:4px;margin-right:6px;vertical-align:middle}
+    .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}.detail{padding:12px;background:#f6f9fa;border-radius:11px}.detail small{display:block;color:var(--muted);font-size:11px}.detail strong{font-size:14px;display:block;margin-top:3px;overflow-wrap:anywhere}
+    .gps-state{display:flex;gap:10px;align-items:center;font-weight:750;font-size:15px}.gps-state .signal{font-size:20px;color:var(--teal)}
+    .gps-message{font-size:13px;color:var(--muted);margin:9px 0 6px} .gps-link{color:#087b83;text-decoration:none;font-weight:750;font-size:13px}.gps-link:hover{text-decoration:underline}
+    .events{width:100%;border-collapse:collapse;font-size:13px} .events th{text-align:left;color:var(--muted);font-size:11px;letter-spacing:.05em;text-transform:uppercase;padding:10px 8px;border-bottom:1px solid var(--line)}
+    .events td{padding:13px 8px;border-bottom:1px solid #eff3f5;font-variant-numeric:tabular-nums} .events tbody tr:last-child td{border-bottom:0}
+    .mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}
+    .empty{padding:24px 4px;color:var(--muted);text-align:center;font-size:13px}
+    .footer-note{padding:15px 2px 0;font-size:12px;color:var(--muted)}.warn{color:var(--warn)}
+    .button{border:1px solid #b6cbd3;border-radius:9px;color:var(--ink);background:#fff;font:inherit;font-size:12px;padding:6px 10px;cursor:pointer}
+    .button:hover{background:#f3f8fa}.error{color:var(--warn);font-size:12px;min-height:1.2em}
+    @media(max-width:950px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.section-grid{grid-template-columns:1fr}}
+    @media(max-width:520px){.layout{padding:18px 12px 32px}.metrics{gap:9px}.card{padding:15px}.intro{padding:15px}.smallinfo{text-align:left}.detail-grid{grid-template-columns:1fr 1fr}.metric-value{font-size:26px}.events th:nth-child(3),.events td:nth-child(3){display:none}}
+  </style>
+</head>
+<body>
+<main class="layout">
+  <header>
+    <div class="brand"><div class="brand-mark" aria-hidden="true">❄</div><div><div class="eyebrow">IoT monitoring system</div><h1>SmartCold Guard</h1><p class="subtitle">Cold-chain environment & security monitoring</p></div></div>
+    <div class="status" role="status" aria-live="polite"><span class="dot" id="state-dot"></span><span id="connection-label">Connecting to server…</span></div>
+  </header>
+  <div class="intro">
+    <div><strong>Live device overview</strong><p class="sub">ESP32-S3 · DHT22 · HC-SR04 · RC522 RFID · SIM28 GPS</p></div>
+    <div class="smallinfo">Latest sample: <strong id="last-update">Waiting for data</strong><br>Refreshes automatically every 5 seconds</div>
+  </div>
+  <section class="metrics" aria-label="Sensor measurements">
+    <article class="card"><div class="metric-label">Temperature</div><div class="metric-value"><span id="temp">—</span><small> °C</small></div><div class="metric-sub">DHT22 · current sample</div></article>
+    <article class="card"><div class="metric-label">Humidity</div><div class="metric-value"><span id="humidity">—</span><small> %RH</small></div><div class="metric-sub">DHT22 · current sample</div></article>
+    <article class="card"><div class="metric-label">Distance</div><div class="metric-value"><span id="distance">—</span><small> cm</small></div><div class="metric-sub">HC-SR04 · measured distance</div></article>
+    <article class="card"><div class="metric-label">RFID scans</div><div class="metric-value" id="rfid-total">—</div><div class="metric-sub">Recent database records (up to 100)</div></article>
+  </section>
+  <div class="section-grid">
+    <section class="card"><div class="card-header"><div><h2>Temperature & humidity history</h2><p class="subtitle">Last 100 saved readings from database</p></div><span class="tag">Live</span></div><div class="chart-container" id="chart" role="img" aria-label="Temperature and humidity chart"></div><div class="chart-legend"><span><i class="legend-color" style="background:#147f7f"></i>Temperature (°C)</span><span><i class="legend-color" style="background:#3676b8"></i>Humidity (%RH)</span></div></section>
+    <section class="card"><div class="card-header"><h2>GPS tracking</h2><span class="tag" id="gps-badge">Awaiting data</span></div><div class="gps-state"><span class="signal" aria-hidden="true">◎</span><span id="gps-state">Waiting for receiver…</span></div><p class="gps-message" id="gps-message">GPS has not supplied a position yet.</p><a id="gps-map" class="gps-link" href="#" target="_blank" rel="noopener noreferrer" hidden>View current position on OpenStreetMap ↗</a>
+      <div class="detail-grid"><div class="detail"><small>Latitude</small><strong id="lat">—</strong></div><div class="detail"><small>Longitude</small><strong id="lon">—</strong></div><div class="detail"><small>GPS speed</small><strong id="speed">—</strong></div><div class="detail"><small>UART characters processed</small><strong id="gps-chars">—</strong></div></div>
+    </section>
+  </div>
+  <section class="card"><div class="card-header"><div><h2>Recent RFID activity</h2><p class="subtitle">A scan is not proof of authorized access</p></div><button class="button" id="refresh-button" type="button">Refresh now</button></div>
+    <table class="events"><thead><tr><th>Event</th><th>Card UID</th><th>Time (your browser)</th></tr></thead><tbody id="event-rows"><tr><td colspan="3" class="empty">Waiting for RFID records…</td></tr></tbody></table>
+  </section>
+  <p id="api-error" class="error" role="status" aria-live="polite"></p>
+  <div class="footer-note">Prototype · local network only · data is stored in server memory and is cleared on restart. No authentication, physical lock control, opening detection, or buzzer alarm is implemented in this version.</div>
+</main>
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const numberText = (value, places = 1) => Number.isFinite(value) ? Number(value).toFixed(places) : '—';
+const timestamp = (iso) => {
+  const dt = new Date(iso);
+  return Number.isNaN(dt.getTime()) ? '—' : dt.toLocaleString();
+};
+function updateStatus(latest, reachable) {
+  const ageMs = latest && latest.receivedAt ? Date.now() - new Date(latest.receivedAt).getTime() : Infinity;
+  const fresh = Number.isFinite(ageMs) && ageMs >= -20000 && ageMs < 20000;
+  const label = !reachable ? 'Server unavailable' : !latest ? 'Waiting for first reading' : fresh ? 'Device reporting' : 'Device data stale';
+  $('connection-label').textContent = label;
+  $('state-dot').className = 'dot' + (fresh && reachable ? ' live' : !reachable || (!fresh && latest) ? ' bad' : '');
+  $('last-update').textContent = latest && latest.receivedAt ? timestamp(latest.receivedAt) : 'Waiting for data';
+}
+function updateLatest(r) {
+  $('temp').textContent = numberText(r.temperatureC);
+  $('humidity').textContent = numberText(r.humidityPercent);
+  $('distance').textContent = numberText(r.distanceCm);
+  const gps = r.gps || {};
+  const hasFix = gps.hasFix === true && Number.isFinite(gps.latitude) && Number.isFinite(gps.longitude);
+  $('gps-state').textContent = hasFix ? 'Current GPS position available' : 'No current satellite position';
+  $('gps-badge').textContent = hasFix ? 'Position available' : 'No fix yet';
+  $('gps-message').textContent = hasFix ? 'Receiver reports a recent position fix.' : 'Serial data may be arriving even when satellite coordinates are unavailable.';
+  $('lat').textContent = hasFix ? Number(gps.latitude).toFixed(6) : '—';
+  $('lon').textContent = hasFix ? Number(gps.longitude).toFixed(6) : '—';
+  $('speed').textContent = Number.isFinite(gps.speedKmph) ? Number(gps.speedKmph).toFixed(1) + ' km/h' : '—';
+  $('gps-chars').textContent = Number.isFinite(gps.charsProcessed) ? Math.trunc(gps.charsProcessed).toLocaleString() : '—';
+  $('gps-map').hidden = !hasFix;
+  if (hasFix) {
+    const lat = Number(gps.latitude), lon = Number(gps.longitude);
+    $('gps-map').href = `https://www.openstreetmap.org/?mlat=${encodeURIComponent(lat)}&mlon=${encodeURIComponent(lon)}#map=15/${encodeURIComponent(lat)}/${encodeURIComponent(lon)}`;
+  } else {$('gps-map').removeAttribute('href');}
+}
+function drawChart(history) {
+  const readings = Array.isArray(history) ? history.slice(-100) : [];
+  const width=720, height=205, top=15, bottom=35, left=35, right=20;
+  const insideW=width-left-right, insideH=height-top-bottom;
+  if (readings.length < 2) {
+    $('chart').innerHTML='<div class="empty">Chart will appear after at least two readings arrive.</div>';
+    return;
+  }
+  const dataSets = [
+    {key:'temperatureC', color:'#147f7f'},
+    {key:'humidityPercent', color:'#3676b8'}
+  ];
+  let all = readings.flatMap(r => dataSets.map(s => r[s.key])).filter(Number.isFinite);
+  if (all.length < 2) {
+    $('chart').innerHTML='<div class="empty">No numeric readings yet.</div>'; return;
+  }
+  let min=Math.min(...all),max=Math.max(...all);
+  if (max-min < 5){const mid=(min+max)/2;min=mid-2.5;max=mid+2.5;}
+  const x=i=>left + i/(readings.length-1)*insideW;
+  const y=v=>top + (max-v)/(max-min)*insideH;
+  const segmentPaths=(key)=>{
+    let parts=[],current=[];
+    readings.forEach((r,i)=>{
+      if(Number.isFinite(r[key])) current.push((current.length?'L':'M')+x(i).toFixed(1)+','+y(r[key]).toFixed(1));
+      else if(current.length){parts.push(current.join(' '));current=[];}
+    });
+    if(current.length)parts.push(current.join(' '));
+    return parts;
+  };
+  const lines=Array.from({length:4},(_,i)=>{
+    let v=min+(max-min)*(3-i)/3;
+    let yy=top+insideH*i/3;
+    return `<line x1="${left}" x2="${width-right}" y1="${yy}" y2="${yy}" stroke="#e8edf2"/><text x="${left-5}" y="${yy+4}" text-anchor="end" font-size="11" fill="#71818e">${v.toFixed(0)}</text>`;
+  }).join('');
+  const paths=dataSets.map(s=>segmentPaths(s.key).map(d=>`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/>`).join('')).join('');
+  const start=timestamp(readings[0].receivedAt);const end=timestamp(readings[readings.length-1].receivedAt);
+  // Timestamps are set using textContent after SVG creation (no dynamic HTML injection).
+  $('chart').innerHTML=`<svg viewBox="0 0 ${width} ${height}" aria-hidden="true">${lines}${paths}<text id="axis-start" x="${left}" y="${height-8}" font-size="11" fill="#71818e"></text><text id="axis-end" x="${width-right}" y="${height-8}" text-anchor="end" font-size="11" fill="#71818e"></text></svg>`;
+  $('axis-start').textContent=start; $('axis-end').textContent=end;
+}
+function updateEvents(events) {
+  const arr=Array.isArray(events) ? events : [];
+  $('rfid-total').textContent=arr.length.toString();
+  const body=$('event-rows'); body.replaceChildren();
+  if (!arr.length){const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=3;td.className='empty';td.textContent='No RFID events saved in the database yet.';tr.append(td);body.append(tr);return;}
+  arr.slice(-8).reverse().forEach(event=>{
+    const tr=document.createElement('tr');
+    [event.type||'card_scanned',event.uid||'—',timestamp(event.receivedAt)].forEach((value,i)=>{
+      const cell=document.createElement('td');cell.textContent=value;if(i===1)cell.className='mono';tr.append(cell);
+    });body.append(tr);
+  });
+}
+async function fetchJson(url) {
+  const response=await fetch(url,{cache:'no-store'});
+  if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
+  return response.json();
+}
+let refreshing=false, lastLatest=null, lastReachable=false;
+async function refresh() {
+  if(refreshing)return;refreshing=true;
+  try {
+    const responses=await Promise.allSettled([
+      fetchJson('/api/latest'),fetchJson('/api/history'),fetchJson('/api/rfid-events')
+    ]);
+    const [latest,history,events]=responses;
+    if(latest.status==='fulfilled'){lastLatest=latest.value;updateLatest(latest.value);}
+    else if(!lastLatest && String(latest.reason).includes('404')){lastLatest=null;}
+    if(history.status==='fulfilled') drawChart(history.value);
+    if(events.status==='fulfilled') updateEvents(events.value);
+    const anySuccess=responses.some(x=>x.status==='fulfilled');
+    lastReachable=anySuccess;
+    updateStatus(lastLatest,anySuccess);
+    $('api-error').textContent= anySuccess ? (responses.some(x=>x.status==='rejected')?'Some data endpoints are unavailable.':'') : 'Cannot reach server APIs. Check that node server.js is running.';
+  } catch(err){lastReachable=false;updateStatus(lastLatest,false);$('api-error').textContent='Data refresh failed: '+err.message;}
+  finally{refreshing=false;}
+}
+$('refresh-button').addEventListener('click',refresh);
+refresh();setInterval(refresh,5000);setInterval(()=>updateStatus(lastLatest,lastReachable),1000);
+</script>
+</body>
+</html>
