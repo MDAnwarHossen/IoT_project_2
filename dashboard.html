@@ -31,6 +31,13 @@
     .gps-state{display:flex;gap:10px;align-items:center;font-weight:750;font-size:15px}.gps-state .signal{font-size:20px;color:var(--teal)}
     .gps-message{font-size:13px;color:var(--muted);margin:9px 0 6px} .gps-link{color:#087b83;text-decoration:none;font-weight:750;font-size:13px}.gps-link:hover{text-decoration:underline}
     .events{width:100%;border-collapse:collapse;font-size:13px} .events th{text-align:left;color:var(--muted);font-size:11px;letter-spacing:.05em;text-transform:uppercase;padding:10px 8px;border-bottom:1px solid var(--line)}
+    .temperature-alert{border:1px solid #d4dee5;border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;background:#fff;display:flex;gap:12px;align-items:flex-start}
+    .temperature-alert .alert-symbol{font-size:22px;line-height:1.3}
+    .temperature-alert .alert-title{font-weight:800;font-size:15px}
+    .temperature-alert .alert-details{font-size:13px;color:var(--muted);margin-top:3px}
+    .temperature-alert.warning{background:#fff0e9;border-color:#edb1a1;color:#962f22}
+    .temperature-alert.normal{background:#e9f6ef;border-color:#a5d4b7;color:#186a42}
+    .temperature-alert.waiting{background:#f3f7fa;border-color:#d4dee5;color:var(--ink)}
     .events td{padding:13px 8px;border-bottom:1px solid #eff3f5;font-variant-numeric:tabular-nums} .events tbody tr:last-child td{border-bottom:0}
     .mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}
     .empty{padding:24px 4px;color:var(--muted);text-align:center;font-size:13px}
@@ -51,6 +58,13 @@
     <div><strong>Live device overview</strong><p class="sub">ESP32-S3 · DHT22 · HC-SR04 · RC522 RFID · SIM28 GPS</p></div>
     <div class="smallinfo">Latest sample: <strong id="last-update">Waiting for data</strong><br>Refreshes automatically every 5 seconds</div>
   </div>
+  <section id="temperature-alert" class="temperature-alert waiting" role="status" aria-live="polite" aria-atomic="true">
+    <span id="temp-alert-icon" class="alert-symbol" aria-hidden="true">◌</span>
+    <div>
+      <div id="temp-alert-title" class="alert-title">Temperature alert: waiting for live data</div>
+      <p id="temp-alert-details" class="alert-details">Demo range: 2.0–8.0 °C. These limits are examples, not product-specific safety criteria.</p>
+    </div>
+  </section>
   <section class="metrics" aria-label="Sensor measurements">
     <article class="card"><div class="metric-label">Temperature</div><div class="metric-value"><span id="temp">—</span><small> °C</small></div><div class="metric-sub">DHT22 · current sample</div></article>
     <article class="card"><div class="metric-label">Humidity</div><div class="metric-value"><span id="humidity">—</span><small> %RH</small></div><div class="metric-sub">DHT22 · current sample</div></article>
@@ -67,12 +81,49 @@
     <table class="events"><thead><tr><th>Event</th><th>Card UID</th><th>Time (your browser)</th></tr></thead><tbody id="event-rows"><tr><td colspan="3" class="empty">Waiting for RFID records…</td></tr></tbody></table>
   </section>
   <p id="api-error" class="error" role="status" aria-live="polite"></p>
-  <div class="footer-note">Prototype · local network only · data is stored in server memory and is cleared on restart. No authentication, physical lock control, opening detection, or buzzer alarm is implemented in this version.</div>
+  <div class="footer-note">Prototype · Online HTTPS reporting and Supabase history. Temperature demo alerts are browser-only; they are not saved or sent as notifications. RFID scans are logged, not authorized access. LDR, buzzer, and physical lock control are not yet implemented.</div>
 </main>
 <script>
 'use strict';
 const $ = (id) => document.getElementById(id);
 const numberText = (value, places = 1) => Number.isFinite(value) ? Number(value).toFixed(places) : '—';
+// Prototype-only example range. Set storage limits to the actual product requirements.
+const DEMO_MIN_TEMP_C = 2.0;
+const DEMO_MAX_TEMP_C = 8.0;
+function updateTemperatureAlert(latest, reachable, fresh) {
+  const element = $('temperature-alert');
+  const icon = $('temp-alert-icon');
+  const title = $('temp-alert-title');
+  const details = $('temp-alert-details');
+  const t = latest ? latest.temperatureC : null;
+  const isValid = typeof t === 'number' && Number.isFinite(t);
+  let state = 'waiting';
+  let name = 'Temperature alert: waiting for live data';
+  let symbol = '◌';
+  let info = `Demo range: ${DEMO_MIN_TEMP_C.toFixed(1)}–${DEMO_MAX_TEMP_C.toFixed(1)} °C. Not product-specific limits.`;
+  if (!reachable || !fresh) {
+    name = 'Temperature alert: live reading unavailable';
+    info = 'Cannot determine the current temperature status from stale or missing data.';
+  } else if (!isValid) {
+    name = 'Temperature sensor reading unavailable';
+    info = 'The latest live sample does not contain a valid temperature.';
+  } else if (t < DEMO_MIN_TEMP_C || t > DEMO_MAX_TEMP_C) {
+    state = 'warning';
+    symbol = '⚠';
+    name = `DEMO ALERT: Temperature ${t.toFixed(1)} °C outside range`;
+    info = `Configured demonstration limits: ${DEMO_MIN_TEMP_C.toFixed(1)}–${DEMO_MAX_TEMP_C.toFixed(1)} °C. This is a visual alert in this browser only.`;
+  } else {
+    state = 'normal';
+    symbol = '✓';
+    name = `Temperature ${t.toFixed(1)} °C within demo range`;
+    info = `Configured demonstration limits: ${DEMO_MIN_TEMP_C.toFixed(1)}–${DEMO_MAX_TEMP_C.toFixed(1)} °C. This is a visual status only.`;
+  }
+  element.className = `temperature-alert ${state}`;
+  icon.textContent = symbol;
+  title.textContent = name;
+  details.textContent = info;
+}
+
 const timestamp = (iso) => {
   const dt = new Date(iso);
   return Number.isNaN(dt.getTime()) ? '—' : dt.toLocaleString();
@@ -84,6 +135,7 @@ function updateStatus(latest, reachable) {
   $('connection-label').textContent = label;
   $('state-dot').className = 'dot' + (fresh && reachable ? ' live' : !reachable || (!fresh && latest) ? ' bad' : '');
   $('last-update').textContent = latest && latest.receivedAt ? timestamp(latest.receivedAt) : 'Waiting for data';
+  updateTemperatureAlert(latest, reachable, fresh);
 }
 function updateLatest(r) {
   $('temp').textContent = numberText(r.temperatureC);
