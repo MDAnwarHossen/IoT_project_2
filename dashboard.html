@@ -30,6 +30,9 @@
     .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}.detail{padding:12px;background:#f6f9fa;border-radius:11px}.detail small{display:block;color:var(--muted);font-size:11px}.detail strong{font-size:14px;display:block;margin-top:3px;overflow-wrap:anywhere}
     .gps-state{display:flex;gap:10px;align-items:center;font-weight:750;font-size:15px}.gps-state .signal{font-size:20px;color:var(--teal)}
     .gps-message{font-size:13px;color:var(--muted);margin:9px 0 6px} .gps-link{color:#087b83;text-decoration:none;font-weight:750;font-size:13px}.gps-link:hover{text-decoration:underline}
+    .gps-map-wrap{margin-top:14px;border:1px solid var(--line);border-radius:11px;overflow:hidden;background:#edf4f7}
+    .gps-map-frame{display:block;border:0;width:100%;height:245px}
+    .gps-map-note{font-size:11px;color:var(--muted);margin-top:7px}
     .events{width:100%;border-collapse:collapse;font-size:13px} .events th{text-align:left;color:var(--muted);font-size:11px;letter-spacing:.05em;text-transform:uppercase;padding:10px 8px;border-bottom:1px solid var(--line)}
     .temperature-alert{border:1px solid #d4dee5;border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;background:#fff;display:flex;gap:12px;align-items:flex-start}
     .temperature-alert .alert-symbol{font-size:22px;line-height:1.3}
@@ -74,7 +77,11 @@
   </section>
   <div class="section-grid">
     <section class="card"><div class="card-header"><div><h2>Temperature & humidity history</h2><p class="subtitle">Last 100 saved readings from database</p></div><span class="tag">Live</span></div><div class="chart-container" id="chart" role="img" aria-label="Temperature and humidity chart"></div><div class="chart-legend"><span><i class="legend-color" style="background:#147f7f"></i>Temperature (°C)</span><span><i class="legend-color" style="background:#3676b8"></i>Humidity (%RH)</span></div></section>
-    <section class="card"><div class="card-header"><h2>GPS tracking</h2><span class="tag" id="gps-badge">Awaiting data</span></div><div class="gps-state"><span class="signal" aria-hidden="true">◎</span><span id="gps-state">Waiting for receiver…</span></div><p class="gps-message" id="gps-message">GPS has not supplied a position yet.</p><a id="gps-map" class="gps-link" href="#" target="_blank" rel="noopener noreferrer" hidden>View current position on OpenStreetMap ↗</a>
+    <section class="card"><div class="card-header"><h2>GPS tracking</h2><span class="tag" id="gps-badge">Awaiting data</span></div><div class="gps-state"><span class="signal" aria-hidden="true">◎</span><span id="gps-state">Waiting for receiver…</span></div><p class="gps-message" id="gps-message">GPS has not supplied a position yet.</p><a id="gps-map" class="gps-link" href="#" target="_blank" rel="noopener noreferrer" hidden>View recorded position on OpenStreetMap ↗</a>
+      <div id="gps-map-panel" class="gps-map-wrap" hidden>
+        <iframe id="gps-map-frame" class="gps-map-frame" title="Latest recorded GPS position" loading="lazy" referrerpolicy="no-referrer"></iframe>
+      </div>
+      <p class="gps-map-note">Map: OpenStreetMap. The map loads the device’s reported location from a third-party service. It shows the latest reported GPS position, not a continuously tracked route.</p>
       <div class="detail-grid"><div class="detail"><small>Latitude</small><strong id="lat">—</strong></div><div class="detail"><small>Longitude</small><strong id="lon">—</strong></div><div class="detail"><small>GPS speed</small><strong id="speed">—</strong></div><div class="detail"><small>UART characters processed</small><strong id="gps-chars">—</strong></div></div>
     </section>
   </div>
@@ -161,18 +168,37 @@ function updateLatest(r) {
   $('ldr').textContent = Number.isInteger(r.ldrRawValue) ? String(r.ldrRawValue) : '—';
   const gps = r.gps || {};
   const hasFix = gps.hasFix === true && Number.isFinite(gps.latitude) && Number.isFinite(gps.longitude);
-  $('gps-state').textContent = hasFix ? 'Current GPS position available' : 'No current satellite position';
+  $('gps-state').textContent = hasFix ? 'GPS position recorded' : 'No GPS position in latest reading';
   $('gps-badge').textContent = hasFix ? 'Position available' : 'No fix yet';
-  $('gps-message').textContent = hasFix ? 'Receiver reports a recent position fix.' : 'Serial data may be arriving even when satellite coordinates are unavailable.';
+  $('gps-message').textContent = hasFix ? 'Map shows the latest received GPS coordinates. See Latest sample time above for freshness.' : 'Serial data may be arriving even when satellite coordinates are unavailable.';
   $('lat').textContent = hasFix ? Number(gps.latitude).toFixed(6) : '—';
   $('lon').textContent = hasFix ? Number(gps.longitude).toFixed(6) : '—';
   $('speed').textContent = Number.isFinite(gps.speedKmph) ? Number(gps.speedKmph).toFixed(1) + ' km/h' : '—';
   $('gps-chars').textContent = Number.isFinite(gps.charsProcessed) ? Math.trunc(gps.charsProcessed).toLocaleString() : '—';
   $('gps-map').hidden = !hasFix;
+  $('gps-map-panel').hidden = !hasFix;
   if (hasFix) {
     const lat = Number(gps.latitude), lon = Number(gps.longitude);
     $('gps-map').href = `https://www.openstreetmap.org/?mlat=${encodeURIComponent(lat)}&mlon=${encodeURIComponent(lon)}#map=15/${encodeURIComponent(lat)}/${encodeURIComponent(lon)}`;
-  } else {$('gps-map').removeAttribute('href');}
+    // Rebuild the map only when the GPS coordinates actually change, not every 5 seconds.
+    const key = `${lat.toFixed(6)},${lon.toFixed(6)}`;
+    const panel = $('gps-map-panel');
+    if (panel.dataset.position !== key) {
+      const latitudeSpan = 0.005;
+      const longitudeSpan = 0.01;
+      const bbox = [lon - longitudeSpan, lat - latitudeSpan, lon + longitudeSpan, lat + latitudeSpan].join(',');
+      const url = new URL('https://www.openstreetmap.org/export/embed.html');
+      url.searchParams.set('bbox', bbox);
+      url.searchParams.set('layer', 'mapnik');
+      url.searchParams.set('marker', `${lat},${lon}`);
+      $('gps-map-frame').src = url.toString();
+      panel.dataset.position = key;
+    }
+  } else {
+    $('gps-map').removeAttribute('href');
+    $('gps-map-panel').dataset.position = '';
+    $('gps-map-frame').removeAttribute('src');
+  }
 }
 function drawChart(history) {
   const readings = Array.isArray(history) ? history.slice(-100) : [];
