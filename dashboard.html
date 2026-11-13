@@ -18,7 +18,7 @@
     .dot{width:9px;height:9px;border-radius:50%;background:#a7b2ba}.dot.live{background:#1b9d80;box-shadow:0 0 0 4px #ddf5ec}.dot.bad{background:var(--warn)}
     .intro{border:1px solid #d2e4e4;background:linear-gradient(130deg,#e2f3f0 0%,#eef4fb 100%);border-radius:var(--radius);padding:21px 23px;margin-bottom:20px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:15px;align-items:center}
     .intro strong{font-size:18px}.intro .sub{color:#5a7280;font-size:13px;margin-top:4px}.smallinfo{color:var(--muted);font-size:13px;text-align:right}
-    .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:20px}
+    .metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-bottom:20px}
     .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:19px;box-shadow:0 3px 14px rgba(25,66,90,.03)}
     .metric-label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.055em}
     .metric-value{font-size:clamp(25px,3vw,35px);font-weight:760;letter-spacing:-.05em;margin-top:13px;line-height:1.18;font-variant-numeric:tabular-nums}
@@ -55,7 +55,7 @@
     <div class="status" role="status" aria-live="polite"><span class="dot" id="state-dot"></span><span id="connection-label">Connecting to server…</span></div>
   </header>
   <div class="intro">
-    <div><strong>Live device overview</strong><p class="sub">ESP32-S3 · DHT22 · HC-SR04 · RC522 RFID · SIM28 GPS</p></div>
+    <div><strong>Live device overview</strong><p class="sub">ESP32-S3 · DHT22 · HC-SR04 · LDR · RC522 RFID · SIM28 GPS</p></div>
     <div class="smallinfo">Latest sample: <strong id="last-update">Waiting for data</strong><br>Refreshes automatically every 5 seconds</div>
   </div>
   <section id="temperature-alert" class="temperature-alert waiting" role="status" aria-live="polite" aria-atomic="true">
@@ -69,6 +69,7 @@
     <article class="card"><div class="metric-label">Temperature</div><div class="metric-value"><span id="temp">—</span><small> °C</small></div><div class="metric-sub">DHT22 · current sample</div></article>
     <article class="card"><div class="metric-label">Humidity</div><div class="metric-value"><span id="humidity">—</span><small> %RH</small></div><div class="metric-sub">DHT22 · current sample</div></article>
     <article class="card"><div class="metric-label">Distance</div><div class="metric-value"><span id="distance">—</span><small> cm</small></div><div class="metric-sub">HC-SR04 · measured distance</div></article>
+    <article class="card"><div class="metric-label">Light sensor (LDR)</div><div class="metric-value"><span id="ldr">—</span><small> / 4095</small></div><div class="metric-sub" id="light-status">Waiting for LDR data</div></article>
     <article class="card"><div class="metric-label">RFID scans</div><div class="metric-value" id="rfid-total">—</div><div class="metric-sub">Recent database records (up to 100)</div></article>
   </section>
   <div class="section-grid">
@@ -81,7 +82,7 @@
     <table class="events"><thead><tr><th>Event</th><th>Card UID</th><th>Time (your browser)</th></tr></thead><tbody id="event-rows"><tr><td colspan="3" class="empty">Waiting for RFID records…</td></tr></tbody></table>
   </section>
   <p id="api-error" class="error" role="status" aria-live="polite"></p>
-  <div class="footer-note">Prototype · Online HTTPS reporting and Supabase history. Temperature demo alerts are browser-only; they are not saved or sent as notifications. RFID scans are logged, not authorized access. LDR, buzzer, and physical lock control are not yet implemented.</div>
+  <div class="footer-note">Prototype · Online HTTPS reporting and Supabase history. Temperature demo alerts are browser-only; they are not saved or sent as notifications. RFID scans are logged, not authorized access. LDR values are measured; light status is a browser-only demo using an uncalibrated threshold. Buzzer and physical lock control are not implemented.</div>
 </main>
 <script>
 'use strict';
@@ -90,6 +91,9 @@ const numberText = (value, places = 1) => Number.isFinite(value) ? Number(value)
 // Prototype-only example range. Set storage limits to the actual product requirements.
 const DEMO_MIN_TEMP_C = 2.0;
 const DEMO_MAX_TEMP_C = 8.0;
+// Demo threshold based on a single LDR test (dark ~392, bright ~1802).
+// Recalibrate inside the real closed/open box before using for security.
+const DEMO_LDR_BRIGHT_THRESHOLD = 1000;
 function updateTemperatureAlert(latest, reachable, fresh) {
   const element = $('temperature-alert');
   const icon = $('temp-alert-icon');
@@ -128,6 +132,18 @@ const timestamp = (iso) => {
   const dt = new Date(iso);
   return Number.isNaN(dt.getTime()) ? '—' : dt.toLocaleString();
 };
+function updateLightStatus(latest, reachable, fresh) {
+  const raw = latest?.ldrRawValue;
+  if (!reachable || !fresh) {
+    $('light-status').textContent = 'Live light status unavailable';
+  } else if (!Number.isInteger(raw) || raw < 0 || raw > 4095) {
+    $('light-status').textContent = 'Waiting for LDR data';
+  } else if (raw >= DEMO_LDR_BRIGHT_THRESHOLD) {
+    $('light-status').textContent = 'Light detected (demo threshold ≥ 1000)';
+  } else {
+    $('light-status').textContent = 'Low light (demo threshold < 1000)';
+  }
+}
 function updateStatus(latest, reachable) {
   const ageMs = latest && latest.receivedAt ? Date.now() - new Date(latest.receivedAt).getTime() : Infinity;
   const fresh = Number.isFinite(ageMs) && ageMs >= -20000 && ageMs < 20000;
@@ -136,11 +152,13 @@ function updateStatus(latest, reachable) {
   $('state-dot').className = 'dot' + (fresh && reachable ? ' live' : !reachable || (!fresh && latest) ? ' bad' : '');
   $('last-update').textContent = latest && latest.receivedAt ? timestamp(latest.receivedAt) : 'Waiting for data';
   updateTemperatureAlert(latest, reachable, fresh);
+  updateLightStatus(latest, reachable, fresh);
 }
 function updateLatest(r) {
   $('temp').textContent = numberText(r.temperatureC);
   $('humidity').textContent = numberText(r.humidityPercent);
   $('distance').textContent = numberText(r.distanceCm);
+  $('ldr').textContent = Number.isInteger(r.ldrRawValue) ? String(r.ldrRawValue) : '—';
   const gps = r.gps || {};
   const hasFix = gps.hasFix === true && Number.isFinite(gps.latitude) && Number.isFinite(gps.longitude);
   $('gps-state').textContent = hasFix ? 'Current GPS position available' : 'No current satellite position';
@@ -228,7 +246,7 @@ async function refresh() {
     const anySuccess=responses.some(x=>x.status==='fulfilled');
     lastReachable=anySuccess;
     updateStatus(lastLatest,anySuccess);
-    $('api-error').textContent= anySuccess ? (responses.some(x=>x.status==='rejected')?'Some data endpoints are unavailable.':'') : 'Cannot reach server APIs. Check that node server.js is running.';
+    $('api-error').textContent= anySuccess ? (responses.some(x=>x.status==='rejected')?'Some data endpoints are unavailable.':'') : 'Cannot reach server APIs. Check the Render service and your connection.';
   } catch(err){lastReachable=false;updateStatus(lastLatest,false);$('api-error').textContent='Data refresh failed: '+err.message;}
   finally{refreshing=false;}
 }

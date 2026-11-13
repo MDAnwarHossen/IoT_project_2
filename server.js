@@ -78,6 +78,7 @@ function toReading(r) {
     temperatureC: r.temperature_c,
     humidityPercent: r.humidity_percent,
     distanceCm: r.distance_cm,
+    ldrRawValue: r.ldr_raw_value ?? null,
     gps: {
       hasFix: r.gps_has_fix,
       latitude: r.gps_latitude,
@@ -117,6 +118,14 @@ app.post('/api/sensor-data', deviceAuth, wrap(async (req, res) => {
     return res.status(400).json({ error: 'Invalid sensor data' });
   }
 
+  // Optional LDR reading from ESP32-S3 GPIO1 (12-bit ADC).
+  // Older ESP32 firmware may omit the field entirely.
+  const ldrRawValue = d.ldrRawValue ?? null;
+  if (ldrRawValue !== null && (!Number.isInteger(ldrRawValue) ||
+      ldrRawValue < 0 || ldrRawValue > 4095)) {
+    return res.status(400).json({ error: 'Invalid LDR reading (expected integer 0-4095)' });
+  }
+
   const receivedAt = new Date().toISOString();
   const now = Date.now();
   const row = {
@@ -124,6 +133,7 @@ app.post('/api/sensor-data', deviceAuth, wrap(async (req, res) => {
     temperature_c: d.temperatureC,
     humidity_percent: d.humidityPercent,
     distance_cm: d.distanceCm,
+    ldr_raw_value: ldrRawValue,
     gps_has_fix: d.gps.hasFix,
     gps_latitude: d.gps.latitude,
     gps_longitude: d.gps.longitude,
