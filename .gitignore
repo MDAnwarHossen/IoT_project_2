@@ -1,5 +1,4 @@
 .env
-node_modules
-.env.example
+.env.*
 Password.txt
-SmartColdGuard_Step9
+node_modules/

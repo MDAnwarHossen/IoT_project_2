@@ -1,283 +1,178 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light">
-  <title>SmartCold Guard — Live Dashboard</title>
-  <style>
-    :root { --ink:#122d40; --muted:#637889; --line:#dce6ec; --bg:#f3f7fa; --card:#fff;
-      --teal:#147f7f; --blue:#3676b8; --amber:#a96b14; --warn:#a34235; --radius:18px; }
-    *{box-sizing:border-box} body{margin:0;background:var(--bg);font:15px/1.5 system-ui,-apple-system,Segoe UI,Arial,sans-serif;color:var(--ink)}
-    .layout{max-width:1160px;margin:0 auto;padding:30px 22px 50px}
-    header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;margin-bottom:26px}
-    .brand{display:flex;align-items:center;gap:14px}.brand-mark{display:grid;place-items:center;width:53px;height:53px;border-radius:15px;background:#d7f0ec;color:var(--teal);font-size:27px}
-    .eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);font-weight:800}
-    h1{font-size:clamp(24px,3vw,32px);line-height:1.1;letter-spacing:-.03em;margin:5px 0 4px}p{margin:0}.subtitle{color:var(--muted);font-size:14px}
-    .status{display:flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid var(--line);background:white;border-radius:999px;font-size:13px;font-weight:700}
-    .dot{width:9px;height:9px;border-radius:50%;background:#a7b2ba}.dot.live{background:#1b9d80;box-shadow:0 0 0 4px #ddf5ec}.dot.bad{background:var(--warn)}
-    .intro{border:1px solid #d2e4e4;background:linear-gradient(130deg,#e2f3f0 0%,#eef4fb 100%);border-radius:var(--radius);padding:21px 23px;margin-bottom:20px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:15px;align-items:center}
-    .intro strong{font-size:18px}.intro .sub{color:#5a7280;font-size:13px;margin-top:4px}.smallinfo{color:var(--muted);font-size:13px;text-align:right}
-    .metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-bottom:20px}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:19px;box-shadow:0 3px 14px rgba(25,66,90,.03)}
-    .metric-label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.055em}
-    .metric-value{font-size:clamp(25px,3vw,35px);font-weight:760;letter-spacing:-.05em;margin-top:13px;line-height:1.18;font-variant-numeric:tabular-nums}
-    .metric-value small{font-size:16px;color:var(--muted);font-weight:500;letter-spacing:0}.metric-sub{font-size:12px;color:var(--muted);margin-top:10px}
-    .section-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:18px;margin-bottom:20px}
-    .card-header{display:flex;align-items:start;justify-content:space-between;gap:10px;margin-bottom:12px}h2{margin:0;font-size:17px;letter-spacing:-.02em} .tag{font-size:11px;padding:4px 9px;border-radius:20px;background:#edf4f5;color:#406273;font-weight:700;white-space:nowrap}
-    .chart-container{width:100%;height:210px}.chart-container svg{height:100%;width:100%;display:block;overflow:visible}
-    .chart-legend{display:flex;flex-wrap:wrap;gap:15px;margin-top:6px;color:var(--muted);font-size:12px}.legend-color{display:inline-block;width:13px;height:4px;border-radius:4px;margin-right:6px;vertical-align:middle}
-    .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}.detail{padding:12px;background:#f6f9fa;border-radius:11px}.detail small{display:block;color:var(--muted);font-size:11px}.detail strong{font-size:14px;display:block;margin-top:3px;overflow-wrap:anywhere}
-    .gps-state{display:flex;gap:10px;align-items:center;font-weight:750;font-size:15px}.gps-state .signal{font-size:20px;color:var(--teal)}
-    .gps-message{font-size:13px;color:var(--muted);margin:9px 0 6px} .gps-link{color:#087b83;text-decoration:none;font-weight:750;font-size:13px}.gps-link:hover{text-decoration:underline}
-    .gps-map-wrap{margin-top:14px;border:1px solid var(--line);border-radius:11px;overflow:hidden;background:#edf4f7}
-    .gps-map-frame{display:block;border:0;width:100%;height:245px}
-    .gps-map-note{font-size:11px;color:var(--muted);margin-top:7px}
-    .events{width:100%;border-collapse:collapse;font-size:13px} .events th{text-align:left;color:var(--muted);font-size:11px;letter-spacing:.05em;text-transform:uppercase;padding:10px 8px;border-bottom:1px solid var(--line)}
-    .temperature-alert{border:1px solid #d4dee5;border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;background:#fff;display:flex;gap:12px;align-items:flex-start}
-    .temperature-alert .alert-symbol{font-size:22px;line-height:1.3}
-    .temperature-alert .alert-title{font-weight:800;font-size:15px}
-    .temperature-alert .alert-details{font-size:13px;color:var(--muted);margin-top:3px}
-    .temperature-alert.warning{background:#fff0e9;border-color:#edb1a1;color:#962f22}
-    .temperature-alert.normal{background:#e9f6ef;border-color:#a5d4b7;color:#186a42}
-    .temperature-alert.waiting{background:#f3f7fa;border-color:#d4dee5;color:var(--ink)}
-    .events td{padding:13px 8px;border-bottom:1px solid #eff3f5;font-variant-numeric:tabular-nums} .events tbody tr:last-child td{border-bottom:0}
-    .mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}
-    .empty{padding:24px 4px;color:var(--muted);text-align:center;font-size:13px}
-    .footer-note{padding:15px 2px 0;font-size:12px;color:var(--muted)}.warn{color:var(--warn)}
-    .button{border:1px solid #b6cbd3;border-radius:9px;color:var(--ink);background:#fff;font:inherit;font-size:12px;padding:6px 10px;cursor:pointer}
-    .button:hover{background:#f3f8fa}.error{color:var(--warn);font-size:12px;min-height:1.2em}
-    @media(max-width:950px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.section-grid{grid-template-columns:1fr}}
-    @media(max-width:520px){.layout{padding:18px 12px 32px}.metrics{gap:9px}.card{padding:15px}.intro{padding:15px}.smallinfo{text-align:left}.detail-grid{grid-template-columns:1fr 1fr}.metric-value{font-size:26px}.events th:nth-child(3),.events td:nth-child(3){display:none}}
-  </style>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light"><title>SmartCold Guard — Monitoring and Access</title>
+<style>
+:root{--ink:#172e3b;--muted:#697f8e;--line:#dce6eb;--bg:#f2f6f8;--white:#fff;--accent:#167f83;--green:#187448;--red:#ac342e;--amber:#a06621;--navy:#152d40}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,Segoe UI,Arial,sans-serif}
+main{max-width:1250px;margin:auto;padding:26px 20px 55px}header{display:flex;align-items:center;gap:14px;justify-content:space-between;flex-wrap:wrap;margin-bottom:18px}
+.brand{display:flex;gap:15px;align-items:center}.logo{display:grid;place-items:center;background:#dcefee;color:var(--accent);font-size:25px;width:56px;height:56px;border-radius:17px}
+h1{font-size:clamp(25px,3vw,33px);margin:0;letter-spacing:-.03em}h2{font-size:17px;margin:0 0 7px}p{margin:0}.muted{color:var(--muted)}.small{font-size:12px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.status{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:50px;padding:10px 15px;font-size:13px;font-weight:700}
+.dot{width:9px;height:9px;background:#a0b0bc;border-radius:100%}.dot.good{background:#139e72;box-shadow:0 0 0 3px #e0f4eb}.dot.bad{background:var(--red)}
+.topnote{background:#e6f3f1;border:1px solid #c3dfdc;border-radius:17px;padding:17px 20px;display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap;margin-bottom:17px}
+.topnote strong{font-size:16px}.topnote .muted{font-size:13px}
+.alerts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin-bottom:16px}
+.alert{border:1px solid var(--line);border-radius:15px;background:#fff;padding:16px 17px;min-height:100px}
+.alert h2{margin:0;font-size:15px}.alert .detail{margin-top:8px;color:var(--muted);font-size:12px}.alert.warning{background:#fff0ec;border-color:#e9b5ac;color:#8f3025}.alert.ok{background:#e8f5ef;border-color:#abdbc5;color:#186b49}.alert.unknown{background:#f7f9fa}
+.metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:13px;margin-bottom:17px}
+.card{background:var(--white);border:1px solid var(--line);border-radius:17px;padding:19px;box-shadow:0 2px 13px rgba(29,66,82,.03)}
+.metric-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.metric-number{font-size:clamp(25px,3vw,35px);letter-spacing:-.04em;font-weight:780;margin-top:13px;line-height:1.1;font-variant-numeric:tabular-nums}
+.metric-number small{font-size:14px;font-weight:500;color:var(--muted)}.metric-note{font-size:12px;margin-top:12px;color:var(--muted)}
+.layout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(320px,1fr);gap:17px;margin-bottom:17px}.stack{display:grid;gap:17px}
+.cardhead{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:13px}.pill{background:#e8f4f2;padding:5px 11px;color:#21656b;border-radius:25px;font-size:11px;font-weight:800}
+.chart{width:100%;height:190px;margin:0 0 8px}.chart svg{width:100%;height:100%}.axes{color:var(--muted);font-size:12px;display:flex;justify-content:space-between}
+.gpsgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.valuecell{background:#f3f7f9;border-radius:10px;padding:10px 12px}.valuecell small{display:block;color:var(--muted);font-size:11px}.valuecell strong{font-size:14px;word-break:break-word}
+.map{margin-top:12px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#e7edf0}.map iframe{border:0;width:100%;height:210px;display:block}
+a{color:#087885}table{border-collapse:collapse;width:100%;font-size:12.5px}th{font-size:11px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;text-align:left;border-bottom:1px solid var(--line)}th,td{padding:10px 8px;border-bottom:1px solid #edf2f5;vertical-align:top}td{font-variant-numeric:tabular-nums}.scroll{overflow-x:auto}.mono{font:12px/1.6 ui-monospace,Consolas,monospace}.tag{display:inline-block;border-radius:15px;background:#eff3f5;padding:3px 8px;font-size:11px;font-weight:700;white-space:nowrap}.tag.good{background:#dcf2e5;color:#146840}.tag.bad{background:#ffebe8;color:#9a2e28}.tag.neutral{background:#e8eff3;color:#526976}
+button{border:1px solid #bdd3db;background:#fff;color:var(--ink);padding:7px 11px;border-radius:8px;cursor:pointer;font:inherit;font-size:12px}button:hover{background:#eef6f9}.error{min-height:20px;color:#a63e36;font-size:12px}.foot{font-size:12px;color:var(--muted);margin-top:18px}
+@media(max-width:1050px){.metrics{grid-template-columns:repeat(3,1fr)}.alerts{grid-template-columns:1fr 1fr}.layout{grid-template-columns:1fr}}
+@media(max-width:650px){main{padding:16px 11px 33px}.metrics{grid-template-columns:repeat(2,1fr);gap:9px}.alerts{grid-template-columns:1fr;gap:9px}.card{padding:14px}.metric-number{font-size:28px}.status{padding:8px 11px}.gpsgrid{grid-template-columns:1fr 1fr}}
+</style>
 </head>
-<body>
-<main class="layout">
-  <header>
-    <div class="brand"><div class="brand-mark" aria-hidden="true">❄</div><div><div class="eyebrow">IoT monitoring system</div><h1>SmartCold Guard</h1><p class="subtitle">Cold-chain environment & security monitoring</p></div></div>
-    <div class="status" role="status" aria-live="polite"><span class="dot" id="state-dot"></span><span id="connection-label">Connecting to server…</span></div>
-  </header>
-  <div class="intro">
-    <div><strong>Live device overview</strong><p class="sub">ESP32-S3 · DHT22 · HC-SR04 · LDR · RC522 RFID · SIM28 GPS</p></div>
-    <div class="smallinfo">Latest sample: <strong id="last-update">Waiting for data</strong><br>Refreshes automatically every 5 seconds</div>
-  </div>
-  <section id="temperature-alert" class="temperature-alert waiting" role="status" aria-live="polite" aria-atomic="true">
-    <span id="temp-alert-icon" class="alert-symbol" aria-hidden="true">◌</span>
-    <div>
-      <div id="temp-alert-title" class="alert-title">Temperature alert: waiting for live data</div>
-      <p id="temp-alert-details" class="alert-details">Demo range: 2.0–8.0 °C. These limits are examples, not product-specific safety criteria.</p>
-    </div>
-  </section>
-  <section class="metrics" aria-label="Sensor measurements">
-    <article class="card"><div class="metric-label">Temperature</div><div class="metric-value"><span id="temp">—</span><small> °C</small></div><div class="metric-sub">DHT22 · current sample</div></article>
-    <article class="card"><div class="metric-label">Humidity</div><div class="metric-value"><span id="humidity">—</span><small> %RH</small></div><div class="metric-sub">DHT22 · current sample</div></article>
-    <article class="card"><div class="metric-label">Distance</div><div class="metric-value"><span id="distance">—</span><small> cm</small></div><div class="metric-sub">HC-SR04 · measured distance</div></article>
-    <article class="card"><div class="metric-label">Light sensor (LDR)</div><div class="metric-value"><span id="ldr">—</span><small> / 4095</small></div><div class="metric-sub" id="light-status">Waiting for LDR data</div></article>
-    <article class="card"><div class="metric-label">RFID scans</div><div class="metric-value" id="rfid-total">—</div><div class="metric-sub">Recent database records (up to 100)</div></article>
-  </section>
-  <div class="section-grid">
-    <section class="card"><div class="card-header"><div><h2>Temperature & humidity history</h2><p class="subtitle">Last 100 saved readings from database</p></div><span class="tag">Live</span></div><div class="chart-container" id="chart" role="img" aria-label="Temperature and humidity chart"></div><div class="chart-legend"><span><i class="legend-color" style="background:#147f7f"></i>Temperature (°C)</span><span><i class="legend-color" style="background:#3676b8"></i>Humidity (%RH)</span></div></section>
-    <section class="card"><div class="card-header"><h2>GPS tracking</h2><span class="tag" id="gps-badge">Awaiting data</span></div><div class="gps-state"><span class="signal" aria-hidden="true">◎</span><span id="gps-state">Waiting for receiver…</span></div><p class="gps-message" id="gps-message">GPS has not supplied a position yet.</p><a id="gps-map" class="gps-link" href="#" target="_blank" rel="noopener noreferrer" hidden>View recorded position on OpenStreetMap ↗</a>
-      <div id="gps-map-panel" class="gps-map-wrap" hidden>
-        <iframe id="gps-map-frame" class="gps-map-frame" title="Latest recorded GPS position" loading="lazy" referrerpolicy="no-referrer"></iframe>
-      </div>
-      <p class="gps-map-note">Map: OpenStreetMap. The map loads the device’s reported location from a third-party service. It shows the latest reported GPS position, not a continuously tracked route.</p>
-      <div class="detail-grid"><div class="detail"><small>Latitude</small><strong id="lat">—</strong></div><div class="detail"><small>Longitude</small><strong id="lon">—</strong></div><div class="detail"><small>GPS speed</small><strong id="speed">—</strong></div><div class="detail"><small>UART characters processed</small><strong id="gps-chars">—</strong></div></div>
-    </section>
-  </div>
-  <section class="card"><div class="card-header"><div><h2>Recent RFID activity</h2><p class="subtitle">A scan is not proof of authorized access</p></div><button class="button" id="refresh-button" type="button">Refresh now</button></div>
-    <table class="events"><thead><tr><th>Event</th><th>Card UID</th><th>Time (your browser)</th></tr></thead><tbody id="event-rows"><tr><td colspan="3" class="empty">Waiting for RFID records…</td></tr></tbody></table>
-  </section>
-  <p id="api-error" class="error" role="status" aria-live="polite"></p>
-  <div class="footer-note">Prototype · Online HTTPS reporting and Supabase history. Temperature demo alerts are browser-only; they are not saved or sent as notifications. RFID scans are logged, not authorized access. LDR values are measured; light status is a browser-only demo using an uncalibrated threshold. Buzzer and physical lock control are not implemented.</div>
+<body><main>
+<header><div class="brand"><div class="logo" aria-hidden="true">❄</div><div><div class="eyebrow">IoT · Monitoring and security</div><h1>SmartCold Guard</h1><p class="muted small">ESP32-S3 · Protected cloud dashboard</p></div></div><div class="status" role="status"><span id="conn-dot" class="dot"></span><span id="conn">Loading…</span></div></header>
+<section class="topnote"><div><strong>Demo thresholds: temperature &gt; 23.5°C · door distance &gt; 30 cm AND light &gt; 350</strong><p class="muted">A recent authorized RFID scan temporarily permits opening; temperature alarms always remain active.</p></div><div><button id="refresh">Refresh now</button><div class="muted small">Latest recorded: <span id="last-time">—</span></div></div></section>
+<section class="alerts" aria-label="Live alarm status"><div id="temp-alert" class="alert unknown"><h2 id="temp-alert-title">Temperature status: waiting</h2><p class="detail" id="temp-alert-detail">Threshold: 23.5°C</p></div><div id="security-alert" class="alert unknown"><h2 id="security-alert-title">Security status: waiting</h2><p class="detail" id="security-alert-detail">Requires distance and light readings</p></div><div id="storage-alert" class="alert unknown"><h2 id="storage-alert-title">Device status: waiting</h2><p class="detail" id="storage-alert-detail">Flash queue / buzzer status</p></div></section>
+<section class="metrics" aria-label="Sensor readings">
+<article class="card"><div class="metric-label">Temperature</div><div class="metric-number"><span id="temp">—</span><small> °C</small></div><div class="metric-note">DHT22 · over 23.5°C alerts</div></article>
+<article class="card"><div class="metric-label">Humidity</div><div class="metric-number"><span id="humidity">—</span><small> %RH</small></div><div class="metric-note">DHT22</div></article>
+<article class="card"><div class="metric-label">Distance</div><div class="metric-number"><span id="distance">—</span><small> cm</small></div><div class="metric-note">HC-SR04 · missing echo = unknown</div></article>
+<article class="card"><div class="metric-label">Light (LDR)</div><div class="metric-number"><span id="ldr">—</span><small> /4095</small></div><div class="metric-note">Door light threshold: 350</div></article>
+<article class="card"><div class="metric-label">RFID access</div><div class="metric-number" id="access" style="font-size:21px">—</div><div class="metric-note" id="access-note">Last scan / current permission</div></article>
+</section>
+<div class="layout"><div class="stack">
+<section class="card"><div class="cardhead"><div><h2>Temperature history</h2><p class="muted small">Every stored reading, including records uploaded after disconnection</p></div><span class="pill">°C</span></div><div id="temp-chart" class="chart"></div><div id="temp-axes" class="axes"></div></section>
+<section class="card"><div class="cardhead"><div><h2>Humidity history</h2><p class="muted small">Sensor data from Supabase</p></div><span class="pill">%RH</span></div><div id="humidity-chart" class="chart"></div><div id="humidity-axes" class="axes"></div></section>
+</div><div class="stack">
+<section class="card"><div class="cardhead"><div><h2>GPS location</h2><p class="muted small" id="gps-message">Waiting for current GPS fix</p></div><span class="pill" id="gps-state">No fix</span></div><div class="gpsgrid"><div class="valuecell"><small>Latitude</small><strong id="latitude">—</strong></div><div class="valuecell"><small>Longitude</small><strong id="longitude">—</strong></div><div class="valuecell"><small>Speed</small><strong id="speed">—</strong></div><div class="valuecell"><small>Satellites</small><strong id="satellites">—</strong></div></div><div id="map-wrap" class="map" hidden><iframe id="map" title="Last recorded GPS position" loading="lazy" referrerpolicy="no-referrer"></iframe></div><p class="muted small" style="margin-top:10px">The map uses OpenStreetMap and is only shown for a valid reported fix.</p></section>
+<section class="card"><h2>Detection rules</h2><div class="gpsgrid" style="margin-top:12px"><div class="valuecell"><small>Door open</small><strong id="door">—</strong></div><div class="valuecell"><small>Permission active</small><strong id="granted">—</strong></div><div class="valuecell"><small>Buzzer</small><strong id="buzzer">—</strong></div><div class="valuecell"><small>Source</small><strong id="source">—</strong></div></div><p class="muted small" style="margin-top:10px">Demo RFID UID allowlist is not secure physical access control. Dashboard values may lag while queued records are replayed.</p></section>
+</div></div>
+<section class="card" style="margin-bottom:17px"><div class="cardhead"><div><h2>RFID access log</h2><p class="muted small">Authorization, scan time, latitude and longitude at the time of scanning</p></div><span class="pill">Saved history</span></div><div class="scroll"><table><thead><tr><th>Time (device UTC)</th><th>UID</th><th>Authorization</th><th>Latitude</th><th>Longitude</th></tr></thead><tbody id="rfid-body"><tr><td colspan="5" class="muted">Loading…</td></tr></tbody></table></div></section>
+<section class="card"><div class="cardhead"><div><h2>Door and alarm event history</h2><p class="muted small">State transitions saved by the ESP32 and synchronized to Supabase</p></div><span class="pill">Audit trail</span></div><div class="scroll"><table><thead><tr><th>Time</th><th>Event</th><th>Status</th><th>GPS</th></tr></thead><tbody id="events-body"><tr><td colspan="4" class="muted">Loading…</td></tr></tbody></table></div></section>
+<p class="error" id="error"></p><p class="foot">Demonstration system, not a certified cold-chain or security device. An offline device cannot provide live cloud updates; buffered records upload after reconnection. If GPS is unavailable, location is recorded as unknown, not guessed.</p>
 </main>
 <script>
 'use strict';
-const $ = (id) => document.getElementById(id);
-const numberText = (value, places = 1) => Number.isFinite(value) ? Number(value).toFixed(places) : '—';
-// Prototype-only example range. Set storage limits to the actual product requirements.
-const DEMO_MIN_TEMP_C = 2.0;
-const DEMO_MAX_TEMP_C = 8.0;
-// Demo threshold based on a single LDR test (dark ~392, bright ~1802).
-// Recalibrate inside the real closed/open box before using for security.
-const DEMO_LDR_BRIGHT_THRESHOLD = 1000;
-function updateTemperatureAlert(latest, reachable, fresh) {
-  const element = $('temperature-alert');
-  const icon = $('temp-alert-icon');
-  const title = $('temp-alert-title');
-  const details = $('temp-alert-details');
-  const t = latest ? latest.temperatureC : null;
-  const isValid = typeof t === 'number' && Number.isFinite(t);
-  let state = 'waiting';
-  let name = 'Temperature alert: waiting for live data';
-  let symbol = '◌';
-  let info = `Demo range: ${DEMO_MIN_TEMP_C.toFixed(1)}–${DEMO_MAX_TEMP_C.toFixed(1)} °C. Not product-specific limits.`;
-  if (!reachable || !fresh) {
-    name = 'Temperature alert: live reading unavailable';
-    info = 'Cannot determine the current temperature status from stale or missing data.';
-  } else if (!isValid) {
-    name = 'Temperature sensor reading unavailable';
-    info = 'The latest live sample does not contain a valid temperature.';
-  } else if (t < DEMO_MIN_TEMP_C || t > DEMO_MAX_TEMP_C) {
-    state = 'warning';
-    symbol = '⚠';
-    name = `DEMO ALERT: Temperature ${t.toFixed(1)} °C outside range`;
-    info = `Configured demonstration limits: ${DEMO_MIN_TEMP_C.toFixed(1)}–${DEMO_MAX_TEMP_C.toFixed(1)} °C. This is a visual alert in this browser only.`;
-  } else {
-    state = 'normal';
-    symbol = '✓';
-    name = `Temperature ${t.toFixed(1)} °C within demo range`;
-    info = `Configured demonstration limits: ${DEMO_MIN_TEMP_C.toFixed(1)}–${DEMO_MAX_TEMP_C.toFixed(1)} °C. This is a visual status only.`;
+const $=id=>document.getElementById(id);
+const num=(v,d=1)=>typeof v==='number'&&Number.isFinite(v)?v.toFixed(d):'—';
+const time=v=>v&&!Number.isNaN(new Date(v).getTime())?new Date(v).toISOString().replace('T',' ').replace(/\.\d{3}Z$/,' UTC'):'Time unavailable';
+const label=(val,positive='Yes',negative='No')=>val===true?positive:val===false?negative:'Unknown';
+const setText=(id,val)=>{$(id).textContent=String(val)};
+let latest=null;
+function card(id,title,detail,state){const el=$(id);el.className='alert '+state;$(id+'-title').textContent=title;$(id+'-detail').textContent=detail;}
+function refreshLatest(r){
+ latest=r;setText('temp',num(r.temperatureC));setText('humidity',num(r.humidityPercent));
+ setText('distance',num(r.distanceCm));setText('ldr',Number.isInteger(r.ldrRawValue)?r.ldrRawValue:'—');
+ const recorded=r.occurredAt||r.receivedAt;
+ setText('last-time',time(recorded));
+ const age=recorded?Date.now()-Date.parse(recorded):Infinity;
+ const stale=age>25000||age < -60000||!Number.isFinite(age);
+ $('conn-dot').className='dot '+(stale?'bad':'good');
+ setText('conn',stale?'Device reading delayed':'Receiving device data');
+ setText('door',r.doorKnown===false?'UNKNOWN':label(r.doorOpen,'OPEN','CLOSED'));
+ setText('granted',label(r.accessGranted,'YES','NO'));
+ setText('buzzer',label(r.buzzerActive,'ON','OFF'));
+ setText('source',r.legacy?'Older firmware':'Final firmware');
+ setText('access',r.accessGranted===true?'AUTHORIZED WINDOW':r.accessGranted===false?'NO ACCESS':'—');
+ setText('access-note',r.legacy?'Scan status unavailable in older records':'Access permission for current opening');
+ const known=typeof r.temperatureAlarm==='boolean';
+ if(stale)card('temp-alert','Temperature: data delayed','Latest recorded measurement is not current.','unknown');
+ else if(known)card('temp-alert',r.temperatureAlarm?'⚠ HIGH TEMPERATURE':'✓ Temperature normal',
+    `Measured ${num(r.temperatureC)}°C · threshold > 23.5°C`,r.temperatureAlarm?'warning':'ok');
+ else if(typeof r.temperatureC==='number')card('temp-alert',r.temperatureC>23.5?'⚠ HIGH TEMPERATURE':'✓ Temperature normal',`Legacy reading · threshold > 23.5°C`,r.temperatureC>23.5?'warning':'ok');
+ else card('temp-alert','Temperature unknown','No valid DHT22 reading','unknown');
+ if(stale)card('security-alert','Security: data delayed','Cannot confirm the current door condition.','unknown');
+ else if(r.securityAlarm===true)card('security-alert','⚠ UNAUTHORIZED OPENING','Door distance > 30 cm AND LDR > 350 without permission.','warning');
+ else if(r.securityAlarm===false)card('security-alert',r.doorKnown===false?'Door sensor unknown':'✓ No security alert',
+   r.doorKnown===false?'The HC-SR04 did not return a valid echo.':r.doorOpen&&r.accessGranted?'Authorized opening':'Opening rule not triggered',
+   r.doorKnown===false?'unknown':'ok');
+ else card('security-alert','Security state unavailable','Older firmware does not report authorization.','unknown');
+ if(r.storageFault)card('storage-alert','⚠ LOCAL STORAGE FAULT','ESP32 may be unable to retain additional records.','warning');
+ else if(stale)card('storage-alert','Device connection delayed','Cloud updates may be buffered until reconnect.','unknown');
+ else if(r.legacy)card('storage-alert','Legacy firmware','No local queue status available.','unknown');
+ else card('storage-alert','✓ Device storage OK',`Buzzer ${r.buzzerActive?'ON':'OFF'} · local events queued for cloud ACK`,'ok');
+ const g=r.gps||{};
+ const hasFix=g.hasFix===true&&Number.isFinite(g.latitude)&&Number.isFinite(g.longitude);
+ setText('gps-state',hasFix?'GPS FIX':'NO FIX');
+ setText('gps-message',hasFix?'Reported fix from latest stored sensor sample':'GPS may need better antenna reception.');
+ setText('latitude',hasFix?g.latitude.toFixed(6):'—');setText('longitude',hasFix?g.longitude.toFixed(6):'—');
+ setText('speed',num(g.speedKmph)+' km/h');setText('satellites',Number.isInteger(g.satellites)?g.satellites:'—');
+ $('map-wrap').hidden=!hasFix;
+ if(hasFix){
+   const marker=`${g.latitude.toFixed(6)},${g.longitude.toFixed(6)}`;
+   if($('map-wrap').dataset.marker!==marker){
+     const url=new URL('https://www.openstreetmap.org/export/embed.html');
+     const lat=g.latitude,lon=g.longitude;
+     url.searchParams.set('bbox',[lon-.01,lat-.005,lon+.01,lat+.005].join(','));
+     url.searchParams.set('layer','mapnik');url.searchParams.set('marker',marker);
+     $('map').src=url.toString();$('map-wrap').dataset.marker=marker;
+   }
+ }else{ $('map').removeAttribute('src');$('map-wrap').dataset.marker='';}
+}
+function drawLine(id,axisId,records,key,unit,color){
+ const clean=Array.isArray(records)?records.filter(r=>typeof r[key]==='number'&&Number.isFinite(r[key])).slice(-180):[];
+ const target=$(id), axis=$(axisId);target.replaceChildren();axis.replaceChildren();
+ if(clean.length<2){target.textContent='At least two valid stored readings are needed.';return;}
+ const values=clean.map(x=>x[key]);let lo=Math.min(...values),hi=Math.max(...values);
+ if(hi-lo<2){lo-=1;hi+=1;}const W=750,H=170,L=45,R=10,T=12,B=20;
+ const x=i=>L+i*(W-L-R)/(clean.length-1),y=v=>T+(hi-v)*(H-T-B)/(hi-lo);
+ const root=document.createElementNS('http://www.w3.org/2000/svg','svg');root.setAttribute('viewBox',`0 0 ${W} ${H}`);
+ for(let i=0;i<4;i++){const yy=T+i*(H-T-B)/3;
+ const l=document.createElementNS(root.namespaceURI,'line');l.setAttribute('x1',L);l.setAttribute('x2',W-R);l.setAttribute('y1',yy);l.setAttribute('y2',yy);l.setAttribute('stroke','#e3ebef');root.append(l);
+ const text=document.createElementNS(root.namespaceURI,'text');text.setAttribute('x',L-5);text.setAttribute('y',yy+4);text.setAttribute('text-anchor','end');text.setAttribute('font-size','12');text.setAttribute('fill','#6b8090');text.textContent=(hi-(hi-lo)*i/3).toFixed(1);root.append(text);}
+ const p=document.createElementNS(root.namespaceURI,'path');p.setAttribute('d',values.map((v,i)=>(i?'L':'M')+x(i).toFixed(2)+' '+y(v).toFixed(2)).join(' '));p.setAttribute('fill','none');p.setAttribute('stroke',color);p.setAttribute('stroke-width','3');p.setAttribute('stroke-linejoin','round');root.append(p);target.append(root);
+ const left=document.createElement('span');left.textContent=time(clean[0].occurredAt||clean[0].receivedAt);const right=document.createElement('span');right.textContent=time(clean.at(-1).occurredAt||clean.at(-1).receivedAt);axis.append(left,right);
+}
+function populateTable(bodyId,rows,render,columns){
+ const body=$(bodyId);body.replaceChildren();
+ if(!rows?.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=columns;td.className='muted';td.textContent='No saved events yet.';tr.append(td);body.append(tr);return;}
+ rows.forEach(row=>{
+  const tr=document.createElement('tr');
+  render(row).forEach(({value,cls,link})=>{
+    const td=document.createElement('td');
+    if(cls)td.className=cls;
+    if(link){const a=document.createElement('a');a.href=link;a.rel='noopener noreferrer';a.target='_blank';a.textContent=String(value);td.append(a)}
+    else td.textContent=String(value??'—');
+    tr.append(td);
+  });body.append(tr);
+ });
+}
+function coordinateLink(lat,lon){return Number.isFinite(lat)&&Number.isFinite(lon)?`https://www.openstreetmap.org/?mlat=${encodeURIComponent(lat)}&mlon=${encodeURIComponent(lon)}#map=15/${encodeURIComponent(lat)}/${encodeURIComponent(lon)}`:null;}
+function updateRFID(rows){populateTable('rfid-body',(rows||[]).slice(0,25),r=>[
+ {value:time(r.occurredAt||r.receivedAt)},
+ {value:r.uid||'—',cls:'mono'},
+ {value:r.authorization? r.authorization.toUpperCase(): 'OLD RECORD · UNKNOWN'},
+ {value:num(r.latitude,6),link:coordinateLink(r.latitude,r.longitude)},
+ {value:num(r.longitude,6),link:coordinateLink(r.latitude,r.longitude)}
+],5);}
+function updateEvents(rows){populateTable('events-body',(rows||[]).slice(0,30),r=>[
+ {value:time(r.occurredAt||r.receivedAt)},
+ {value:r.kind==='alarm' ? r.code : r.kind==='door' ? `door ${r.code}` : 'RFID scan'},
+ {value:r.kind==='alarm' ? r.active?'ALARM ON':'ALARM OFF' : r.kind==='rfid' ? r.authorization : 'State change'},
+ {value:coordinateLink(r.latitude,r.longitude)?`${num(r.latitude,5)}, ${num(r.longitude,5)}`:'No fix',link:coordinateLink(r.latitude,r.longitude)}
+],4);}
+const fetchJson=async url=>{const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error(`${url}: HTTP ${res.status}`);return res.json()};
+let refreshing=false;
+async function refresh(){if(refreshing)return;refreshing=true;
+ try{
+  const results=await Promise.allSettled([fetchJson('/api/latest'),fetchJson('/api/history?limit=200'),fetchJson('/api/rfid-events?limit=100'),fetchJson('/api/events?limit=80')]);
+  const [l,h,r,e]=results;
+  if(l.status==='fulfilled') refreshLatest(l.value);
+  else {setText('conn','Waiting for valid sensor data');$('conn-dot').className='dot bad';}
+  if(h.status==='fulfilled'){
+    drawLine('temp-chart','temp-axes',h.value,'temperatureC','°C','#16847e');
+    drawLine('humidity-chart','humidity-axes',h.value,'humidityPercent','%RH','#4678c5');
   }
-  element.className = `temperature-alert ${state}`;
-  icon.textContent = symbol;
-  title.textContent = name;
-  details.textContent = info;
+  if(r.status==='fulfilled') updateRFID(r.value);
+  if(e.status==='fulfilled') updateEvents(e.value);
+  $('error').textContent=results.some(x=>x.status==='rejected')?'Some API data is unavailable; check Render logs and Supabase.':'';
+ }catch(err){$('error').textContent=err.message;}
+ finally{refreshing=false;}
 }
-
-const timestamp = (iso) => {
-  const dt = new Date(iso);
-  return Number.isNaN(dt.getTime()) ? '—' : dt.toLocaleString();
-};
-function updateLightStatus(latest, reachable, fresh) {
-  const raw = latest?.ldrRawValue;
-  if (!reachable || !fresh) {
-    $('light-status').textContent = 'Live light status unavailable';
-  } else if (!Number.isInteger(raw) || raw < 0 || raw > 4095) {
-    $('light-status').textContent = 'Waiting for LDR data';
-  } else if (raw >= DEMO_LDR_BRIGHT_THRESHOLD) {
-    $('light-status').textContent = 'Light detected (demo threshold ≥ 1000)';
-  } else {
-    $('light-status').textContent = 'Low light (demo threshold < 1000)';
-  }
-}
-function updateStatus(latest, reachable) {
-  const ageMs = latest && latest.receivedAt ? Date.now() - new Date(latest.receivedAt).getTime() : Infinity;
-  const fresh = Number.isFinite(ageMs) && ageMs >= -20000 && ageMs < 20000;
-  const label = !reachable ? 'Server unavailable' : !latest ? 'Waiting for first reading' : fresh ? 'Device reporting' : 'Device data stale';
-  $('connection-label').textContent = label;
-  $('state-dot').className = 'dot' + (fresh && reachable ? ' live' : !reachable || (!fresh && latest) ? ' bad' : '');
-  $('last-update').textContent = latest && latest.receivedAt ? timestamp(latest.receivedAt) : 'Waiting for data';
-  updateTemperatureAlert(latest, reachable, fresh);
-  updateLightStatus(latest, reachable, fresh);
-}
-function updateLatest(r) {
-  $('temp').textContent = numberText(r.temperatureC);
-  $('humidity').textContent = numberText(r.humidityPercent);
-  $('distance').textContent = numberText(r.distanceCm);
-  $('ldr').textContent = Number.isInteger(r.ldrRawValue) ? String(r.ldrRawValue) : '—';
-  const gps = r.gps || {};
-  const hasFix = gps.hasFix === true && Number.isFinite(gps.latitude) && Number.isFinite(gps.longitude);
-  $('gps-state').textContent = hasFix ? 'GPS position recorded' : 'No GPS position in latest reading';
-  $('gps-badge').textContent = hasFix ? 'Position available' : 'No fix yet';
-  $('gps-message').textContent = hasFix ? 'Map shows the latest received GPS coordinates. See Latest sample time above for freshness.' : 'Serial data may be arriving even when satellite coordinates are unavailable.';
-  $('lat').textContent = hasFix ? Number(gps.latitude).toFixed(6) : '—';
-  $('lon').textContent = hasFix ? Number(gps.longitude).toFixed(6) : '—';
-  $('speed').textContent = Number.isFinite(gps.speedKmph) ? Number(gps.speedKmph).toFixed(1) + ' km/h' : '—';
-  $('gps-chars').textContent = Number.isFinite(gps.charsProcessed) ? Math.trunc(gps.charsProcessed).toLocaleString() : '—';
-  $('gps-map').hidden = !hasFix;
-  $('gps-map-panel').hidden = !hasFix;
-  if (hasFix) {
-    const lat = Number(gps.latitude), lon = Number(gps.longitude);
-    $('gps-map').href = `https://www.openstreetmap.org/?mlat=${encodeURIComponent(lat)}&mlon=${encodeURIComponent(lon)}#map=15/${encodeURIComponent(lat)}/${encodeURIComponent(lon)}`;
-    // Rebuild the map only when the GPS coordinates actually change, not every 5 seconds.
-    const key = `${lat.toFixed(6)},${lon.toFixed(6)}`;
-    const panel = $('gps-map-panel');
-    if (panel.dataset.position !== key) {
-      const latitudeSpan = 0.005;
-      const longitudeSpan = 0.01;
-      const bbox = [lon - longitudeSpan, lat - latitudeSpan, lon + longitudeSpan, lat + latitudeSpan].join(',');
-      const url = new URL('https://www.openstreetmap.org/export/embed.html');
-      url.searchParams.set('bbox', bbox);
-      url.searchParams.set('layer', 'mapnik');
-      url.searchParams.set('marker', `${lat},${lon}`);
-      $('gps-map-frame').src = url.toString();
-      panel.dataset.position = key;
-    }
-  } else {
-    $('gps-map').removeAttribute('href');
-    $('gps-map-panel').dataset.position = '';
-    $('gps-map-frame').removeAttribute('src');
-  }
-}
-function drawChart(history) {
-  const readings = Array.isArray(history) ? history.slice(-100) : [];
-  const width=720, height=205, top=15, bottom=35, left=35, right=20;
-  const insideW=width-left-right, insideH=height-top-bottom;
-  if (readings.length < 2) {
-    $('chart').innerHTML='<div class="empty">Chart will appear after at least two readings arrive.</div>';
-    return;
-  }
-  const dataSets = [
-    {key:'temperatureC', color:'#147f7f'},
-    {key:'humidityPercent', color:'#3676b8'}
-  ];
-  let all = readings.flatMap(r => dataSets.map(s => r[s.key])).filter(Number.isFinite);
-  if (all.length < 2) {
-    $('chart').innerHTML='<div class="empty">No numeric readings yet.</div>'; return;
-  }
-  let min=Math.min(...all),max=Math.max(...all);
-  if (max-min < 5){const mid=(min+max)/2;min=mid-2.5;max=mid+2.5;}
-  const x=i=>left + i/(readings.length-1)*insideW;
-  const y=v=>top + (max-v)/(max-min)*insideH;
-  const segmentPaths=(key)=>{
-    let parts=[],current=[];
-    readings.forEach((r,i)=>{
-      if(Number.isFinite(r[key])) current.push((current.length?'L':'M')+x(i).toFixed(1)+','+y(r[key]).toFixed(1));
-      else if(current.length){parts.push(current.join(' '));current=[];}
-    });
-    if(current.length)parts.push(current.join(' '));
-    return parts;
-  };
-  const lines=Array.from({length:4},(_,i)=>{
-    let v=min+(max-min)*(3-i)/3;
-    let yy=top+insideH*i/3;
-    return `<line x1="${left}" x2="${width-right}" y1="${yy}" y2="${yy}" stroke="#e8edf2"/><text x="${left-5}" y="${yy+4}" text-anchor="end" font-size="11" fill="#71818e">${v.toFixed(0)}</text>`;
-  }).join('');
-  const paths=dataSets.map(s=>segmentPaths(s.key).map(d=>`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/>`).join('')).join('');
-  const start=timestamp(readings[0].receivedAt);const end=timestamp(readings[readings.length-1].receivedAt);
-  // Timestamps are set using textContent after SVG creation (no dynamic HTML injection).
-  $('chart').innerHTML=`<svg viewBox="0 0 ${width} ${height}" aria-hidden="true">${lines}${paths}<text id="axis-start" x="${left}" y="${height-8}" font-size="11" fill="#71818e"></text><text id="axis-end" x="${width-right}" y="${height-8}" text-anchor="end" font-size="11" fill="#71818e"></text></svg>`;
-  $('axis-start').textContent=start; $('axis-end').textContent=end;
-}
-function updateEvents(events) {
-  const arr=Array.isArray(events) ? events : [];
-  $('rfid-total').textContent=arr.length.toString();
-  const body=$('event-rows'); body.replaceChildren();
-  if (!arr.length){const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=3;td.className='empty';td.textContent='No RFID events saved in the database yet.';tr.append(td);body.append(tr);return;}
-  arr.slice(-8).reverse().forEach(event=>{
-    const tr=document.createElement('tr');
-    [event.type||'card_scanned',event.uid||'—',timestamp(event.receivedAt)].forEach((value,i)=>{
-      const cell=document.createElement('td');cell.textContent=value;if(i===1)cell.className='mono';tr.append(cell);
-    });body.append(tr);
-  });
-}
-async function fetchJson(url) {
-  const response=await fetch(url,{cache:'no-store'});
-  if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
-  return response.json();
-}
-let refreshing=false, lastLatest=null, lastReachable=false;
-async function refresh() {
-  if(refreshing)return;refreshing=true;
-  try {
-    const responses=await Promise.allSettled([
-      fetchJson('/api/latest'),fetchJson('/api/history'),fetchJson('/api/rfid-events')
-    ]);
-    const [latest,history,events]=responses;
-    if(latest.status==='fulfilled'){lastLatest=latest.value;updateLatest(latest.value);}
-    else if(!lastLatest && String(latest.reason).includes('404')){lastLatest=null;}
-    if(history.status==='fulfilled') drawChart(history.value);
-    if(events.status==='fulfilled') updateEvents(events.value);
-    const anySuccess=responses.some(x=>x.status==='fulfilled');
-    lastReachable=anySuccess;
-    updateStatus(lastLatest,anySuccess);
-    $('api-error').textContent= anySuccess ? (responses.some(x=>x.status==='rejected')?'Some data endpoints are unavailable.':'') : 'Cannot reach server APIs. Check the Render service and your connection.';
-  } catch(err){lastReachable=false;updateStatus(lastLatest,false);$('api-error').textContent='Data refresh failed: '+err.message;}
-  finally{refreshing=false;}
-}
-$('refresh-button').addEventListener('click',refresh);
-refresh();setInterval(refresh,5000);setInterval(()=>updateStatus(lastLatest,lastReachable),1000);
+$('refresh').addEventListener('click',refresh);
+refresh();setInterval(refresh,5000);
 </script>
-</body>
-</html>
+</body></html>

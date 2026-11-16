@@ -1,17 +1,16 @@
 {
-  "name": "smartcoldguard",
+  "name": "smartcold-guard-final",
   "version": "1.0.0",
-  "main": "index.js",
+  "private": true,
+  "description": "SmartCold Guard ESP32/Supabase/Render/Blynk demonstration server",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js",
+    "test": "node --test tests/*.test.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "engines": { "node": ">=20" },
   "dependencies": {
-    "@supabase/supabase-js": "^2.119.0",
-    "dotenv": "^18.0.9",
-    "express": "^5.3.0"
+    "@supabase/supabase-js": "^2.58.0",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2"
   }
 }
