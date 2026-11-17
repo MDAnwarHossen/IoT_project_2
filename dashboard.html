@@ -50,7 +50,7 @@ button{border:1px solid #bdd3db;background:#fff;color:var(--ink);padding:7px 11p
 <section class="card"><div class="cardhead"><div><h2>GPS location</h2><p class="muted small" id="gps-message">Waiting for current GPS fix</p></div><span class="pill" id="gps-state">No fix</span></div><div class="gpsgrid"><div class="valuecell"><small>Latitude</small><strong id="latitude">—</strong></div><div class="valuecell"><small>Longitude</small><strong id="longitude">—</strong></div><div class="valuecell"><small>Speed</small><strong id="speed">—</strong></div><div class="valuecell"><small>Satellites</small><strong id="satellites">—</strong></div></div><div id="map-wrap" class="map" hidden><iframe id="map" title="Last recorded GPS position" loading="lazy" referrerpolicy="no-referrer"></iframe></div><p class="muted small" style="margin-top:10px">The map uses OpenStreetMap and is only shown for a valid reported fix.</p></section>
 <section class="card"><h2>Detection rules</h2><div class="gpsgrid" style="margin-top:12px"><div class="valuecell"><small>Door open</small><strong id="door">—</strong></div><div class="valuecell"><small>Permission active</small><strong id="granted">—</strong></div><div class="valuecell"><small>Buzzer</small><strong id="buzzer">—</strong></div><div class="valuecell"><small>Source</small><strong id="source">—</strong></div></div><p class="muted small" style="margin-top:10px">Demo RFID UID allowlist is not secure physical access control. Dashboard values may lag while queued records are replayed.</p></section>
 </div></div>
-<section class="card" style="margin-bottom:17px"><div class="cardhead"><div><h2>RFID access log</h2><p class="muted small">Authorization, scan time, latitude and longitude at the time of scanning</p></div><span class="pill">Saved history</span></div><div class="scroll"><table><thead><tr><th>Time (device UTC)</th><th>UID</th><th>Authorization</th><th>Latitude</th><th>Longitude</th></tr></thead><tbody id="rfid-body"><tr><td colspan="5" class="muted">Loading…</td></tr></tbody></table></div></section>
+<section class="card" style="margin-bottom:17px"><div class="cardhead"><div><h2>RFID access log</h2><p class="muted small">Authorization, scan time, latitude and longitude at the time of scanning</p></div><span class="pill">Saved history</span></div><div class="scroll"><table><thead><tr><th>Time (Finland)</th><th>UID</th><th>Authorization</th><th>Latitude</th><th>Longitude</th></tr></thead><tbody id="rfid-body"><tr><td colspan="5" class="muted">Loading…</td></tr></tbody></table></div></section>
 <section class="card"><div class="cardhead"><div><h2>Door and alarm event history</h2><p class="muted small">State transitions saved by the ESP32 and synchronized to Supabase</p></div><span class="pill">Audit trail</span></div><div class="scroll"><table><thead><tr><th>Time</th><th>Event</th><th>Status</th><th>GPS</th></tr></thead><tbody id="events-body"><tr><td colspan="4" class="muted">Loading…</td></tr></tbody></table></div></section>
 <p class="error" id="error"></p><p class="foot">Demonstration system, not a certified cold-chain or security device. An offline device cannot provide live cloud updates; buffered records upload after reconnection. If GPS is unavailable, location is recorded as unknown, not guessed.</p>
 </main>
@@ -58,7 +58,24 @@ button{border:1px solid #bdd3db;background:#fff;color:var(--ink);padding:7px 11p
 'use strict';
 const $=id=>document.getElementById(id);
 const num=(v,d=1)=>typeof v==='number'&&Number.isFinite(v)?v.toFixed(d):'—';
-const time=v=>v&&!Number.isNaN(new Date(v).getTime())?new Date(v).toISOString().replace('T',' ').replace(/\.\d{3}Z$/,' UTC'):'Time unavailable';
+
+const time = v => {
+  if (!v || Number.isNaN(new Date(v).getTime())) {
+    return "Time unavailable";
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Helsinki",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  }).format(new Date(v));
+};
+
 const label=(val,positive='Yes',negative='No')=>val===true?positive:val===false?negative:'Unknown';
 const setText=(id,val)=>{$(id).textContent=String(val)};
 let latest=null;
