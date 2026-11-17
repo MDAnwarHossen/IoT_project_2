@@ -39,6 +39,23 @@ let lastBlynkUpdateAt = 0;
 let notificationWorkerBusy = false;
 let lastNotificationWorkerAt = 0;
 
+// Dashboard-only SSE subscribers. No secrets or database credentials go to the browser.
+// This broadcasts only after Supabase accepts a new durable record.
+const liveClients = new Set();
+function publishLiveRecord(record, storedRow) {
+  const message = JSON.stringify({
+    kind: record.kind,
+    id: record.id,
+    data: record.kind === 'sensor' ? recordForUI(storedRow) : null
+  });
+  const frame = `event: record\ndata: ${message}\n\n`;
+  for (const client of liveClients) {
+    if (client.destroyed || client.writableEnded) { liveClients.delete(client); continue; }
+    try { client.write(frame); }
+    catch (_) { liveClients.delete(client); }
+  }
+}
+
 function sameSecret(a,b) {
   const x=Buffer.from(String(a||'')),y=Buffer.from(String(b||''));
   return x.length === y.length && crypto.timingSafeEqual(x,y);
@@ -136,6 +153,24 @@ app.get('/api/status',(_req,res)=>res.json({project:'SmartCold Guard',server:'on
 app.get('/dashboard',dashboardAuth,(_req,res)=>
   res.sendFile(path.join(__dirname,'dashboard.html')));
 
+// Browser receives push updates here. Same HTTP Basic auth as /dashboard.
+app.get('/api/live',dashboardAuth,(req,res)=>{
+  res.status(200).set({
+    'Content-Type':'text/event-stream; charset=utf-8',
+    'Cache-Control':'no-cache, no-transform',
+    'Connection':'keep-alive',
+    'X-Accel-Buffering':'no'
+  });
+  res.flushHeaders();
+  res.write('retry: 3000\n: connected\n\n');
+  liveClients.add(res);
+  // Heartbeat prevents idle intermediary timeouts.
+  const heartbeat=setInterval(()=>{
+    if (!res.destroyed && !res.writableEnded) res.write(': ping\n\n');
+  },20000);
+  res.on('close',()=>{clearInterval(heartbeat);liveClients.delete(res);});
+});
+
 // NEW durable, idempotent endpoint. Duplication across retries returns ACK,
 // but conflicting payloads with the same ID return 409, not a false ACK.
 app.post('/api/record',deviceAuth,wrap(async(req,res)=>{
@@ -147,7 +182,8 @@ app.post('/api/record',deviceAuth,wrap(async(req,res)=>{
   const row={device_id:r.deviceId,event_id:r.id,sequence:r.sequence,
     record_type:r.kind,occurred_at:r.occurredAt||null,
     payload:r,payload_digest:digest,
-    notification_code:notificationCode(r),notification_sent:false};
+    notification_code:notificationCode(r),notification_sent:false,
+    received_at:new Date().toISOString()};
   const {error}=await db.from('device_records').insert(row);
   if (error) {
     if (error.code!=='23505') {
@@ -164,6 +200,8 @@ app.post('/api/record',deviceAuth,wrap(async(req,res)=>{
     return res.json({success:true,ackId:r.id,duplicate:true});
   }
   res.json({success:true,ackId:r.id,duplicate:false});
+  // A fresh record was durably accepted before notifying connected browsers.
+  publishLiveRecord(r,row);
   afterPersist(r);
 }));
 

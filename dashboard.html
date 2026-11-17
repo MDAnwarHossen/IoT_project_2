@@ -34,13 +34,13 @@ button{border:1px solid #bdd3db;background:#fff;color:var(--ink);padding:7px 11p
 </head>
 <body><main>
 <header><div class="brand"><div class="logo" aria-hidden="true">❄</div><div><div class="eyebrow">IoT · Monitoring and security</div><h1>SmartCold Guard</h1><p class="muted small">ESP32-S3 · Protected cloud dashboard</p></div></div><div class="status" role="status"><span id="conn-dot" class="dot"></span><span id="conn">Loading…</span></div></header>
-<section class="topnote"><div><strong>Demo thresholds: temperature &gt; 23.5°C · door distance &gt; 30 cm AND light &gt; 350</strong><p class="muted">A recent authorized RFID scan temporarily permits opening; temperature alarms always remain active.</p></div><div><button id="refresh">Refresh now</button><div class="muted small">Latest recorded: <span id="last-time">—</span></div></div></section>
-<section class="alerts" aria-label="Live alarm status"><div id="temp-alert" class="alert unknown"><h2 id="temp-alert-title">Temperature status: waiting</h2><p class="detail" id="temp-alert-detail">Threshold: 23.5°C</p></div><div id="security-alert" class="alert unknown"><h2 id="security-alert-title">Security status: waiting</h2><p class="detail" id="security-alert-detail">Requires distance and light readings</p></div><div id="storage-alert" class="alert unknown"><h2 id="storage-alert-title">Device status: waiting</h2><p class="detail" id="storage-alert-detail">Flash queue / buzzer status</p></div></section>
+<section class="topnote"><div><strong>Demo thresholds: temperature &gt; 23.5°C · unauthorized distance &gt; 30 cm OR LDR &gt; 350</strong><p class="muted">A recent authorized RFID scan temporarily permits opening; temperature alarms always remain active.</p></div><div><button id="refresh">Refresh now</button><div class="muted small">Latest recorded: <span id="last-time">—</span><div id="stream-status" class="muted small" aria-live="polite">Connecting live updates…</div></div></div></section>
+<section class="alerts" aria-label="Live alarm status"><div id="temp-alert" class="alert unknown"><h2 id="temp-alert-title">Temperature status: waiting</h2><p class="detail" id="temp-alert-detail">Threshold: 23.5°C</p></div><div id="security-alert" class="alert unknown"><h2 id="security-alert-title">Security status: waiting</h2><p class="detail" id="security-alert-detail">Door distance or unexpected light without authorization</p></div><div id="storage-alert" class="alert unknown"><h2 id="storage-alert-title">Device status: waiting</h2><p class="detail" id="storage-alert-detail">Flash queue / buzzer status</p></div></section>
 <section class="metrics" aria-label="Sensor readings">
 <article class="card"><div class="metric-label">Temperature</div><div class="metric-number"><span id="temp">—</span><small> °C</small></div><div class="metric-note">DHT22 · over 23.5°C alerts</div></article>
 <article class="card"><div class="metric-label">Humidity</div><div class="metric-number"><span id="humidity">—</span><small> %RH</small></div><div class="metric-note">DHT22</div></article>
 <article class="card"><div class="metric-label">Distance</div><div class="metric-number"><span id="distance">—</span><small> cm</small></div><div class="metric-note">HC-SR04 · missing echo = unknown</div></article>
-<article class="card"><div class="metric-label">Light (LDR)</div><div class="metric-number"><span id="ldr">—</span><small> /4095</small></div><div class="metric-note">Door light threshold: 350</div></article>
+<article class="card"><div class="metric-label">Light (LDR)</div><div class="metric-number"><span id="ldr">—</span><small> /4095</small></div><div class="metric-note">Unexpected light threshold: 350</div></article>
 <article class="card"><div class="metric-label">RFID access</div><div class="metric-number" id="access" style="font-size:21px">—</div><div class="metric-note" id="access-note">Last scan / current permission</div></article>
 </section>
 <div class="layout"><div class="stack">
@@ -58,24 +58,10 @@ button{border:1px solid #bdd3db;background:#fff;color:var(--ink);padding:7px 11p
 'use strict';
 const $=id=>document.getElementById(id);
 const num=(v,d=1)=>typeof v==='number'&&Number.isFinite(v)?v.toFixed(d):'—';
-
 const time = v => {
-  if (!v || Number.isNaN(new Date(v).getTime())) {
-    return "Time unavailable";
-  }
-
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/Helsinki",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false
-  }).format(new Date(v));
+  if (!v || Number.isNaN(new Date(v).getTime())) return 'Time unavailable';
+  return new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Helsinki',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(new Date(v));
 };
-
 const label=(val,positive='Yes',negative='No')=>val===true?positive:val===false?negative:'Unknown';
 const setText=(id,val)=>{$(id).textContent=String(val)};
 let latest=null;
@@ -102,7 +88,7 @@ function refreshLatest(r){
  else if(typeof r.temperatureC==='number')card('temp-alert',r.temperatureC>23.5?'⚠ HIGH TEMPERATURE':'✓ Temperature normal',`Legacy reading · threshold > 23.5°C`,r.temperatureC>23.5?'warning':'ok');
  else card('temp-alert','Temperature unknown','No valid DHT22 reading','unknown');
  if(stale)card('security-alert','Security: data delayed','Cannot confirm the current door condition.','unknown');
- else if(r.securityAlarm===true)card('security-alert','⚠ UNAUTHORIZED OPENING','Door distance > 30 cm AND LDR > 350 without permission.','warning');
+ else if(r.securityAlarm===true)card('security-alert','⚠ SECURITY ALERT','Door distance > 30 cm OR LDR > 350 without permission.','warning');
  else if(r.securityAlarm===false)card('security-alert',r.doorKnown===false?'Door sensor unknown':'✓ No security alert',
    r.doorKnown===false?'The HC-SR04 did not return a valid echo.':r.doorOpen&&r.accessGranted?'Authorized opening':'Opening rule not triggered',
    r.doorKnown===false?'unknown':'ok');
@@ -173,23 +159,74 @@ function updateEvents(rows){populateTable('events-body',(rows||[]).slice(0,30),r
 ],4);}
 const fetchJson=async url=>{const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error(`${url}: HTTP ${res.status}`);return res.json()};
 let refreshing=false;
+let historyRows=[];
+let recentSensorIds=new Set();
+let liveConnected=false;
+let eventsRefreshTimer=null;
+function redrawHistory(){
+  drawLine('temp-chart','temp-axes',historyRows,'temperatureC','°C','#16847e');
+  drawLine('humidity-chart','humidity-axes',historyRows,'humidityPercent','%RH','#4678c5');
+}
+function recordTime(r){return Date.parse(r.occurredAt||r.receivedAt)||0;}
+function handleLiveSensor(r){
+  // Old queued records can arrive after reconnection: never show an older
+  // sequence as the current reading if a newer one is already displayed.
+  if(!latest || !Number.isInteger(latest.sequence) || !Number.isInteger(r.sequence) || r.sequence>=latest.sequence) refreshLatest(r);
+  if(r.id && recentSensorIds.has(r.id))return;
+  if(r.id) recentSensorIds.add(r.id);
+  historyRows.push(r);
+  historyRows.sort((a,b)=>recordTime(a)-recordTime(b));
+  historyRows=historyRows.slice(-200);
+  if(recentSensorIds.size>400)recentSensorIds=new Set(historyRows.map(x=>x.id).filter(Boolean));
+  redrawHistory();
+}
+async function refreshEventTables(){
+  const results=await Promise.allSettled([fetchJson('/api/rfid-events?limit=100'),fetchJson('/api/events?limit=80')]);
+  if(results[0].status==='fulfilled')updateRFID(results[0].value);
+  if(results[1].status==='fulfilled')updateEvents(results[1].value);
+  if(results.some(x=>x.status==='rejected'))$('error').textContent='Some event history is temporarily unavailable.';
+}
+function scheduleEventsRefresh(){
+  if(eventsRefreshTimer)return;
+  eventsRefreshTimer=setTimeout(()=>{eventsRefreshTimer=null;void refreshEventTables();},250);
+}
 async function refresh(){if(refreshing)return;refreshing=true;
  try{
   const results=await Promise.allSettled([fetchJson('/api/latest'),fetchJson('/api/history?limit=200'),fetchJson('/api/rfid-events?limit=100'),fetchJson('/api/events?limit=80')]);
   const [l,h,r,e]=results;
-  if(l.status==='fulfilled') refreshLatest(l.value);
-  else {setText('conn','Waiting for valid sensor data');$('conn-dot').className='dot bad';}
+  if(l.status==='fulfilled'){
+    if(!latest || !Number.isInteger(latest.sequence) || !Number.isInteger(l.value.sequence) || l.value.sequence>=latest.sequence)refreshLatest(l.value);
+  }else if(!latest){setText('conn','Waiting for valid sensor data');$('conn-dot').className='dot bad';}
   if(h.status==='fulfilled'){
-    drawLine('temp-chart','temp-axes',h.value,'temperatureC','°C','#16847e');
-    drawLine('humidity-chart','humidity-axes',h.value,'humidityPercent','%RH','#4678c5');
+    // Preserve any SSE records delivered while the history fetch was in flight.
+    const merged=new Map();
+    for(const x of [...h.value,...historyRows])merged.set(x.id||`${x.occurredAt||x.receivedAt}:${x.temperatureC}`,x);
+    historyRows=[...merged.values()].sort((a,b)=>recordTime(a)-recordTime(b)).slice(-200);
+    recentSensorIds=new Set(historyRows.map(x=>x.id).filter(Boolean));
+    redrawHistory();
   }
-  if(r.status==='fulfilled') updateRFID(r.value);
-  if(e.status==='fulfilled') updateEvents(e.value);
+  if(r.status==='fulfilled')updateRFID(r.value);
+  if(e.status==='fulfilled')updateEvents(e.value);
   $('error').textContent=results.some(x=>x.status==='rejected')?'Some API data is unavailable; check Render logs and Supabase.':'';
  }catch(err){$('error').textContent=err.message;}
  finally{refreshing=false;}
 }
-$('refresh').addEventListener('click',refresh);
-refresh();setInterval(refresh,5000);
+$('refresh').addEventListener('click',()=>void refresh());
+// The SSE stream sends new durable records as they reach Render.
+const stream=new EventSource('/api/live');
+stream.onopen=()=>{liveConnected=true;setText('stream-status','● Live connection active');void refresh();};
+stream.addEventListener('record',event=>{
+  let message;try{message=JSON.parse(event.data);}catch(_){return;}
+  if(message.kind==='sensor' && message.data)handleLiveSensor(message.data);
+  else if(['rfid','door','alarm'].includes(message.kind))scheduleEventsRefresh();
+});
+stream.onerror=()=>{liveConnected=false;setText('stream-status','Reconnecting live updates…');};
+// Recovery polling only when SSE is unavailable. This also handles a missed
+// event across a Render restart without repeatedly polling while connected.
+setInterval(()=>{if(!liveConnected)void refresh();},15000);
+// Update the stale-data indicator without polling the server.
+setInterval(()=>{if(latest)refreshLatest(latest);},5000);
+window.addEventListener('beforeunload',()=>stream.close());
+refresh();
 </script>
 </body></html>
